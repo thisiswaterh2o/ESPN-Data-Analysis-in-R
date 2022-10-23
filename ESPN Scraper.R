@@ -13,19 +13,16 @@ run_libs = function(){
   library(ggplot2)
   library(ggpubr)
   library(readxl)
+  library(glue)
+  library(httr)
+  library(writexl)
+  library(xlsx)
 }
 
 
 
 lsf.str("package:espnscrapeR")
 a = get_nfl_qbr("2022", season_type = "Regular", week = 1)
-
-
-nfl_qbr <- function(year, season_type, week, qb_name){
-  temp = data.frame(get_nfl_qbr(season = year, season_type = season_type, week = week))
-  temp = temp[temp$name_display == qb_name,]
-  temp
-  } 
 
 
 team_id_list = data.frame(get_nfl_teams())$team_id
@@ -168,7 +165,7 @@ season = get_nfl_schedule(2021)$season
 test = data.frame(get_nfl_schedule(2021))
 test$game_date
 
-nfl_years = as.character(c(2015:2022))
+nfl_years = as.character(2022)
 season_info = data.frame(get_nfl_schedule(2022))
 season_info[,c(-1)]
 colnames(season_info)
@@ -197,7 +194,7 @@ for(i in nfl_years){
   )
 }
 
-
+season_scores = distinct(season_scores)
 
 
 boxscore_players_colnames = c("game_id", "season", "season_type", "date", "week", 
@@ -479,13 +476,43 @@ create_bs_df = function(list_of_ids = list_of_ids){
   }
   temp_bs_df
 }
+sd = "2022-10-01"
+ed = Sys.Date()
+list_to_join = seq(as.Date(sd), as.Date(ed), by=1)
+list_to_join[1]
+length(list_to_join)
+
 
 todays_bs = more_bs(Sys.Date()-5)
+
+
+for (i in c(1:length(list_to_join))){
+  tryCatch({
+    index = list_to_join[i]
+    temp_bs = more_bs(index)
+    temp_df = create_bs_df(temp_bs)
+    df1 = rbind(df1, temp_df)
+    
+    #temp_df = unique(create_bs_df(todays_bs))
+    
+    #df1 = rbind(df1, today_df)
+  },
+  error = function(e){
+    print(paste("Error on:" , index))
+    print(e)
+  }
+  )
+  
+}
+
+tail(df1)
+passing_yards("Carson Wentz")
 
 today_df = unique(create_bs_df(todays_bs))
 df1 = rbind(df1, today_df)
 df1 = unique(df1)
 tail(df1)
+
 ####### --------------------------------------------------------------####
 
 jt = df1 %>% filter(full_name == "Jonathan Taylor", rush_att != "NA")
@@ -533,7 +560,7 @@ player_stats = function(name){
 }
 
 
-ps_data = player_stats("Tua Tagovailoa")
+ps_data = player_stats("Justin Herbert")
 ps_data = ps_data[ps_data$season_type != 1, ]
 
 ggplot(data.frame(ps_data), 
@@ -707,8 +734,8 @@ ry_table = unique(merge(current_ry, team_name, by="full_name") %>% arrange(desc(
 season_info = data.frame(get_nfl_schedule(2022))
 season_info$new_date = substr(season_info$startDate, 0, 10)
 season_info %>% arrange(desc(new_date))
-start_date = "2022-10-13"
-end_date = "2022-10-18"
+start_date = "2022-10-20"
+end_date = "2022-10-25"
 current_week_schedule = season_info[season_info$new_date >= start_date & season_info$new_date <= end_date, ]
 current_week_schedule =current_week_schedule[, c("matchup_short", "venue_city", "indoor", "home_team_name", "home_team_abb",
                           "home_team_id", "home_record",
@@ -747,7 +774,7 @@ head(schedule_abbr)
 
 
 ########### DVOA File Joining ##########
-week = 6
+week = 7
 
 
 setwd(paste("D:/Projects/Sports Data/DVOA FIles/Week", week))
@@ -758,7 +785,6 @@ wr_dvoa = data.frame(read_csv("2022 Wide Receivers.csv"))
 rb_dvoa = data.frame(read_csv("2022 Running Backs.csv"))
 te_dvoa = data.frame(read_csv("2022 Tight Ends.csv"))
 
-overall_dvoa = data.frame(read_csv(paste("2022 Team DVOA Ratings Overall (Week ", week, ")",  ".csv", sep = "")))
 colnames(def_dvoa)[1] = "Team2"
 
 
@@ -877,8 +903,8 @@ matchup = schedule_abbr[2:4]
 wr_analysis = merge(wr_analysis, team_name, by="full_name")
 wr_analysis1 = merge(wr_analysis, matchup, by = "Team") %>% arrange(desc(`Avg Rec Yards`), desc("Team"))
 
-wr_analysis1 = merge(wr_analysis1, wr_l3, by = "full_name")
-wr_analysis1 = merge(wr_analysis1, wr_l1, by = "full_name")
+wr_analysis1 = merge(wr_analysis1, wr_l3, by = "full_name", all.x = TRUE)
+wr_analysis1 = merge(wr_analysis1, wr_l1, by = "full_name", all.x = TRUE)
 wr_analysis1 = unique(wr_analysis1) %>% arrange(desc(`L3 Avg Rec Yards`))
 colnames(wr_analysis1)[7] = "Opponent"
 
@@ -992,7 +1018,7 @@ rb_analysis1 = unique(rb_analysis1)
 head(rb_analysis1)
 
 
-### AVG, L3, L1 Stats for WRs ###
+### AVG, L3, L1 Stats for RBs ###
 head(rb_analysis1)
 
 colnames(def_dvoa)[c(1,9, 11)]
@@ -1017,4 +1043,131 @@ rb_bad_matchups = rb_table[rb_table$Def.Pass.DVOA.Rank < 10 & qb_table$Pass.DVOA
 
 qb_table[qb_table$full_name == "Josh Allen", ]
 wr_analysis
+
+
+################## Targets per Team #############
+data_analysis$full_name
+all_table
+colnames(all_table)
+player_info = all_table[, c("athlete_id", "fn", "pos_abb", "team_abb")]
+head(player_info)
+colnames(player_info)[2] <- "full_name"
+da = merge(data_analysis, player_info, by="full_name")
+da = da[da$pos_abb != "KR" & da$pos_abb != "PR" & da$pos_abb != "FS" & da$pos_abb != "SS" &
+          da$pos_abb != "LCB" & da$pos_abb != "RCB", ]
+
+unique(da$pos_abb)
+
+total_targets = da %>% group_by(game_id, season, season_type, week, team_abb) %>% 
+  summarise("Total Targets" = sum(`Rec Targets`))
+total_targets = total_targets[total_targets$`Total Targets` != 0, ]
+head(total_targets)
+da_tt = merge(da, total_targets, by = c("game_id", "team_abb"))
+da_tt["Target Share"] = da_tt$`Rec Targets` / da_tt$`Total Targets`
+da_tt = unique(da_tt)
+da_tt = da_tt[da_tt$`Rec Targets` != 0, ]
+colnames(da_tt)
+da_tt = da_tt[,c("game_id", "full_name", "team_abb","pos_abb", "week.x", "Rec Targets", "Total Targets", "Target Share")]
+head(da_tt)
+test = merge(da_tt, player_info, by="full_name")
+head(player_info)
+
+setwd("D:/Projects/Sports Data/")
+write_xlsx(da_tt,"Total Targets.xlsx")
+
+all_table %>% count(fn) %>% filter(n > 1)
+
+
+## --------------- Sports Betting Lines -------- ##
+### Read in Betting Lines ####
+
+getwd()
+setwd("D:/Projects/Sports Data/Prop Lines")
+prop_lines = data.frame(read_csv("nfl-best-bets (1).csv"))
+colnames(prop_lines)
+prop_lines = prop_lines[, c("propType", "player", "position", "team", "opponent",
+                            "line", "sideOneType", "sideOneOdds", "sideTwoOdds")]
+head(prop_lines)
+
+head(wr_table)
+name_split = wr_table %>% separate(full_name, c("first_name", "last_name"), sep = " ")
+wr_table$full_name2 = paste(paste(substr(name_split$first_name, 0, 1), ".", sep=""), name_split$last_name)
+head(player_info)
+receiving_table = merge(wr_table, player_info, by = "full_name")
+receiving_table = receiving_table[receiving_table$pos_abb != "KR" & receiving_table$pos_abb != "PR" & receiving_table$pos_abb != "FS" & receiving_table$pos_abb != "SS" &
+          receiving_table$pos_abb != "LCB" & receiving_table$pos_abb != "RCB" &
+            receiving_table$Team == receiving_table$team_abb, ]
+rec_props = merge(receiving_table, prop_lines, by.x = "full_name2", by.y = "player")
+unique(rec_props$propType)
+rec_props = rec_props[rec_props$propType == "recv_yd" | rec_props$propType == "recv_rec", ]
+colnames(rec_props)
+rec_yards_props = rec_props[rec_props$propType == "recv_yd", c("full_name", "Team", "pos_abb", "season.x", "propType", "line", "sideOneType", 
+              "Avg Rec Yards", "L3 Avg Rec Yards", "L1 Avg Rec Yards", "Opponent", "Pass.DVOA.Rank","Def.Pass.DVOA.Rank",
+              "Rush.DVOA.Rank", "Def.Rush.DVOA.Rank")]
+rec_catch_props = rec_props[rec_props$propType == "recv_rec", 
+                            c("full_name", "Team", "pos_abb", "season.x", "propType", "line", "sideOneType", 
+                              "Avg Rec Catches", "L3 Avg Rec Catches", "L1 Avg Rec Catches", "Opponent", "Pass.DVOA.Rank","Def.Pass.DVOA.Rank", 
+                              "Rush.DVOA.Rank", "Def.Rush.DVOA.Rank")]
+rec_yards_stack = rec_yards_props
+colnames(rec_yards_stack)[8:10] = c("Avg", "L3", "L1")
+rec_catch_stack = rec_catch_props
+colnames(rec_catch_stack)[8:10] = c("Avg", "L3", "L1")
+
+final_rec_props = rbind(rec_yards_stack, rec_catch_stack)
+final_rec_props$L3.Diff = (final_rec_props$L3 - final_rec_props$line)/final_rec_props$L3
+final_rec_props = final_rec_props[final_rec_props$pos_abb == "WR" | final_rec_props$pos_abb == "RB" | 
+                  final_rec_props$pos_abb == "TE", ]
+
+
+setwd("D:/Projects/Sports Data/")
+sheetName = "Week 7 Props"
+write_xlsx(list(Week_7_Props = final_rec_props),"Week 7 Receiving Props1.xlsx")
+
+read.table("D:/Projects/Sports Data/RZ Def/Redzone Defense.txt", header = TRUE, sep = ",")
+
+setwd("D:/Projects/Sports Data/CBS Stats")
+
+## RB ##
+rb_team = read.xlsx("Week 7 Stats.xlsx", sheetIndex = 1, header = TRUE)
+rb_team$team_name = str_replace(rb_team$Team, "RB vs ", "")
+rb_team$pos_abb = substr(rb_team$Team, 0, 2)
+colnames(teams)
+team_name_abb = teams[, c(2, 4)]
+
+colnames(final_rec_props)
+rb_vs = merge(rb_team, team_name_abb, by = "team_name")
+colnames(rb_vs)[16] = "Opponent"
+
+
+### TE ##
+te_team = read.xlsx("Week 7 Stats.xlsx", sheetIndex = 2, header = TRUE)
+te_team$team_name = str_replace(te_team$Team, "TE vs ", "")
+te_team$pos_abb = substr(te_team$Team, 0, 2)
+colnames(teams)
+
+te_vs = merge(te_team, team_name_abb, by = "team_name")
+colnames(te_vs)[16] = "Opponent"
+
+## WR ##
+wr_team = read.xlsx("Week 7 Stats.xlsx", sheetIndex = 3, header = TRUE)
+wr_team$team_name = str_replace(wr_team$Team, "WR vs ", "")
+wr_team$pos_abb = substr(wr_team$Team, 0, 2)
+colnames(teams)
+
+wr_vs = merge(wr_team, team_name_abb, by = "team_name")
+colnames(wr_vs)[16] = "Opponent"
+
+### Bind All ###
+rec_vs = rbind(rb_vs, te_vs, wr_vs)
+
+teams
+head(rb_vs)
+head(final_rec_props)
+final_rec_props_vs = merge(final_rec_props, rec_vs, by = c("Opponent", "pos_abb"))
+colnames(final_rec_props_vs)
+final_rec_props_vs = final_rec_props_vs[, c()]
+
+setwd("D:/Projects/Sports Data/")
+sheetName = "Week 7 Props"
+write_xlsx(list(Week_7_Props = final_rec_props_vs),"Week 7 Receiving Props 3.xlsx")
 
